@@ -6,7 +6,8 @@ import 'package:get/get.dart';
 import 'package:location/location.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart' as permission_handler;
+import 'package:permission_handler/permission_handler.dart'
+    as permission_handler;
 import 'package:test_location/model/CurrentLocationModel.dart';
 
 enum ButtonState {
@@ -21,16 +22,17 @@ class LocationReadingController extends GetxController {
   StreamSubscription<LocationData>? positionStreamSubscription;
   Rx<ButtonState> currentBtnState = ButtonState.start.obs;
   ScrollController scrollController = ScrollController();
-  RxList<CurrentLocationModel> receivedCoordinatedList = <CurrentLocationModel>[].obs;
+  RxList<CurrentLocationModel> receivedCoordinatedList =
+      <CurrentLocationModel>[].obs;
   final Location location = Location();
 
   @override
   void onInit() {
     super.onInit();
-    _initLocationService();
+    initLocationService();
   }
 
-  Future<void> _initLocationService() async {
+  Future<void> initLocationService() async {
     bool serviceEnabled;
     PermissionStatus permissionGranted;
 
@@ -49,35 +51,45 @@ class LocationReadingController extends GetxController {
         return;
       }
     }
-    await _requestBackgroundPermission();
+
+    await requestBackgroundPermission();
   }
 
-  Future<void> _requestBackgroundPermission() async {
-    var backgroundStatus = await permission_handler.Permission.locationAlways.status;
+  Future<void> requestBackgroundPermission() async {
+    var backgroundStatus =
+        await permission_handler.Permission.locationAlways.status;
 
     if (backgroundStatus.isDenied) {
-      backgroundStatus = await permission_handler.Permission.locationAlways.request();
-
+      backgroundStatus =
+          await permission_handler.Permission.locationAlways.request();
       if (!backgroundStatus.isGranted) {
         debugPrint('Background location permission not granted');
+        Get.snackbar('Error', 'Background permission is not allowed ');
         return;
       }
     }
+
     await location.enableBackgroundMode(enable: true);
   }
 
-  void startFetchingLocation() {
-    positionStreamSubscription = location.onLocationChanged.listen((LocationData currentLocation) {
-      if (currentLocation.latitude != null && currentLocation.longitude != null) {
+  Future<void> startFetchingLocation() async {
+    debugPrint('isBg available:- ${await location.isBackgroundModeEnabled()}');
+    positionStreamSubscription =
+        location.onLocationChanged.listen((LocationData currentLocation) {
+      if (currentLocation.latitude != null &&
+          currentLocation.longitude != null) {
         latitude.value = currentLocation.latitude!;
         longitude.value = currentLocation.longitude!;
 
-        debugPrint('Latitude: $latitude, Longitude: $longitude ===>>> ${DateTime.now().second}');
+        debugPrint(
+            'Latitude: $latitude, Longitude: $longitude ===>>> ${DateTime.now().second}');
 
         receivedCoordinatedList.insert(
             receivedCoordinatedList.length,
             CurrentLocationModel(
-                latitude: latitude.toString(), longitude: longitude.toString(), time: DateTime.now().toString()));
+                latitude: latitude.toString(),
+                longitude: longitude.toString(),
+                time: DateTime.now().toString()));
 
         scrollController.animateTo(
           scrollController.position.maxScrollExtent + 150,
@@ -100,7 +112,10 @@ class LocationReadingController extends GetxController {
   }
 
   Future<void> saveLocationsAsCsv() async {
-    List<String> csvRows = [CurrentLocationModel.getCsvHeader(), ...receivedCoordinatedList.map((item) => item.toCsvRow())];
+    List<String> csvRows = [
+      CurrentLocationModel.getCsvHeader(),
+      ...receivedCoordinatedList.map((item) => item.toCsvRow())
+    ];
     String csvContent = csvRows.join('\n');
 
     await saveFileToDownloads("locations.csv", csvContent);
@@ -109,23 +124,19 @@ class LocationReadingController extends GetxController {
   Future<void> saveFileToDownloads(String fileName, String content) async {
     try {
       if (Platform.isAndroid) {
-        // Get the external storage directory
         final directory = await getExternalStorageDirectory();
-        if (directory == null) throw Exception('Unable to access storage directory');
+        if (directory == null)
+          throw Exception('Unable to access storage directory');
 
-        // Create the file in the app's external storage
         final file = File('${directory.path}/$fileName');
         await file.writeAsString(content);
         debugPrint("File saved to: ${file.path}");
 
-        // Open the file
         await OpenFilex.open(file.path);
 
-        // Clear the list and update button state
         receivedCoordinatedList.clear();
         currentBtnState.value = ButtonState.start;
       } else {
-        // iOS or other platforms
         final directory = await getApplicationDocumentsDirectory();
         final file = File('${directory.path}/$fileName');
         await file.writeAsString(content);
@@ -145,6 +156,7 @@ class LocationReadingController extends GetxController {
 }
 
 class Constants {
-  static const String storageEmulatedDownloadPath = '/storage/emulated/0/Download';
+  static const String storageEmulatedDownloadPath =
+      '/storage/emulated/0/Download';
   static const String sdcardDownloadPath = '/sdcard/Download';
 }

@@ -14,6 +14,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return GetMaterialApp(
       title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -42,32 +43,30 @@ class LocationReadingPage extends StatelessWidget {
       body: Stack(
         children: [
           Positioned.fill(
-            child: Expanded(
-              child: Obx(
-                () => controller.receivedCoordinatedList.isEmpty
-                    ? const Center(
-                        child: Text('No Coordinate Received'),
-                      )
-                    : ListView.builder(
-                        itemCount: controller.receivedCoordinatedList.length,
-                        controller: controller.scrollController,
-                        shrinkWrap: true,
-                        itemBuilder: (context, index) {
-                          var item = controller.receivedCoordinatedList[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                            child: ListTile(
-                              style: ListTileStyle.list,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  side: const BorderSide(color: Colors.deepPurple, width: 2, style: BorderStyle.solid)),
-                              title: Text(
-                                  'Uid :- ${item.uid}, \nLat :- ${item.latitude}, \nLong :- ${item.longitude}, \nTime :- ${item.time}'),
-                            ),
-                          );
-                        },
-                      ),
-              ),
+            child: Obx(
+              () => controller.receivedCoordinatedList.isEmpty
+                  ? const Center(
+                      child: Text('No Coordinate Received'),
+                    )
+                  : ListView.builder(
+                      itemCount: controller.receivedCoordinatedList.length,
+                      controller: controller.scrollController,
+                      shrinkWrap: true,
+                      itemBuilder: (context, index) {
+                        var item = controller.receivedCoordinatedList[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          child: ListTile(
+                            style: ListTileStyle.list,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(color: Colors.deepPurple, width: 2, style: BorderStyle.solid)),
+                            title: Text(
+                                'Uid :- ${item.uid}, \nLat :- ${item.latitude}, \nLong :- ${item.longitude}, \nTime :- ${item.time}'),
+                          ),
+                        );
+                      },
+                    ),
             ),
           ),
           Positioned(
