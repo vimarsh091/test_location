@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
+import 'package:location/location.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart' as permission_handler;
 import 'package:test_location/model/CurrentLocationModel.dart';
 
 enum ButtonState {
@@ -18,55 +18,78 @@ enum ButtonState {
 class LocationReadingController extends GetxController {
   RxDouble latitude = 0.0.obs;
   RxDouble longitude = 0.0.obs;
-  StreamSubscription<Position>? positionStreamSubscription;
+  StreamSubscription<LocationData>? positionStreamSubscription;
   Rx<ButtonState> currentBtnState = ButtonState.start.obs;
-  RxList<CurrentLocationModel> receivedCoordinatedList =
-      <CurrentLocationModel>[].obs;
+  ScrollController scrollController = ScrollController();
+  RxList<CurrentLocationModel> receivedCoordinatedList = <CurrentLocationModel>[].obs;
+  final Location location = Location();
 
-  void startFetchingLocation() async {
-    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    receivedCoordinatedList.clear();
+  @override
+  void onInit() {
+    super.onInit();
+    _initLocationService();
+  }
+
+  Future<void> _initLocationService() async {
+    bool serviceEnabled;
+    PermissionStatus permissionGranted;
+
+    serviceEnabled = await location.serviceEnabled();
     if (!serviceEnabled) {
-      debugPrint('Location services are disabled.');
-      await Geolocator.openLocationSettings();
-      return;
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        debugPrint('Location permissions are denied.');
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) {
         return;
       }
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      debugPrint('Location permissions are permanently denied.');
-      return;
+    permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) {
+        return;
+      }
     }
+    await _requestBackgroundPermission();
+  }
 
-    positionStreamSubscription = Stream.periodic(const Duration(seconds: 2))
-        .asyncMap((_) => Geolocator.getCurrentPosition(
-              locationSettings:
-                  const LocationSettings(accuracy: LocationAccuracy.high),
-            ))
-        .listen((Position position) {
-      latitude.value = position.latitude;
-      longitude.value = position.longitude;
+  Future<void> _requestBackgroundPermission() async {
+    var backgroundStatus = await permission_handler.Permission.locationAlways.status;
 
-      debugPrint(
-          'Latitude: $latitude, Longitude: $longitude ===>>> ${DateTime.now().second}');
+    if (backgroundStatus.isDenied) {
+      backgroundStatus = await permission_handler.Permission.locationAlways.request();
 
-      receivedCoordinatedList.add(CurrentLocationModel(
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-          time: DateTime.now().toString()));
+      if (!backgroundStatus.isGranted) {
+        debugPrint('Background location permission not granted');
+        return;
+      }
+    }
+    await location.enableBackgroundMode(enable: true);
+  }
+
+  void startFetchingLocation() {
+    positionStreamSubscription = location.onLocationChanged.listen((LocationData currentLocation) {
+      if (currentLocation.latitude != null && currentLocation.longitude != null) {
+        latitude.value = currentLocation.latitude!;
+        longitude.value = currentLocation.longitude!;
+
+        debugPrint('Latitude: $latitude, Longitude: $longitude ===>>> ${DateTime.now().second}');
+
+        receivedCoordinatedList.insert(
+            receivedCoordinatedList.length,
+            CurrentLocationModel(
+                latitude: latitude.toString(), longitude: longitude.toString(), time: DateTime.now().toString()));
+
+        scrollController.animateTo(
+          scrollController.position.maxScrollExtent + 150,
+          duration: Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
+
     currentBtnState.value = ButtonState.stop;
   }
 
-  /// stop listening location
   void stopListening() {
     positionStreamSubscription?.cancel();
     if (receivedCoordinatedList.isNotEmpty) {
@@ -76,50 +99,52 @@ class LocationReadingController extends GetxController {
     }
   }
 
-  /// download csv file to local
   Future<void> saveLocationsAsCsv() async {
-    // Prepare CSV content
-    List<String> csvRows = [
-      CurrentLocationModel.getCsvHeader(),
-      ...receivedCoordinatedList.map((item) => item.toCsvRow())
-    ];
+    List<String> csvRows = [CurrentLocationModel.getCsvHeader(), ...receivedCoordinatedList.map((item) => item.toCsvRow())];
     String csvContent = csvRows.join('\n');
 
-    // Save to Downloads folder
     await saveFileToDownloads("locations.csv", csvContent);
   }
 
   Future<void> saveFileToDownloads(String fileName, String content) async {
-    // Request storage permissions
-    var status = await Permission.storage.request();
-  /*  if (!status.isGranted) {
-      print("Storage permission is required.");
-      return;
-    }*/
-
     try {
-      // Get the Downloads directory
-      Directory downloadsDirectory = Directory('/storage/emulated/0/Download');
+      if (Platform.isAndroid) {
+        // Get the external storage directory
+        final directory = await getExternalStorageDirectory();
+        if (directory == null) throw Exception('Unable to access storage directory');
 
-      // Ensure the directory exists
-      if (!await downloadsDirectory.exists()) {
-        throw Exception("Downloads directory does not exist.");
+        // Create the file in the app's external storage
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsString(content);
+        debugPrint("File saved to: ${file.path}");
+
+        // Open the file
+        await OpenFilex.open(file.path);
+
+        // Clear the list and update button state
+        receivedCoordinatedList.clear();
+        currentBtnState.value = ButtonState.start;
+      } else {
+        // iOS or other platforms
+        final directory = await getApplicationDocumentsDirectory();
+        final file = File('${directory.path}/$fileName');
+        await file.writeAsString(content);
+        await OpenFilex.open(file.path);
       }
-
-      // Create the file in the Downloads folder
-      File file = File('${downloadsDirectory.path}/$fileName');
-      await file.writeAsString(content);
-
-      print("File saved to: ${file.path}");
-      OpenFilex.open(file.path);
     } catch (e) {
-      print("Error saving file: $e");
+      debugPrint("Error saving file: $e");
+      rethrow;
     }
   }
 
   @override
-  void dispose() {
+  void onClose() {
     stopListening();
-    super.dispose();
+    super.onClose();
   }
+}
+
+class Constants {
+  static const String storageEmulatedDownloadPath = '/storage/emulated/0/Download';
+  static const String sdcardDownloadPath = '/sdcard/Download';
 }

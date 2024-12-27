@@ -31,57 +31,77 @@ class LocationReadingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Location'),
+        backgroundColor: Colors.deepPurple,
+        title: const Text(
+          'Location',
+          style: TextStyle(color: Colors.white),
+        ),
       ),
-      body: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: Stack(
         children: [
-          Expanded(
-            child: Obx(
-              () => controller.receivedCoordinatedList.isEmpty
-                  ? Center(
-                      child: Text('No Coordinate Received'),
-                    )
-                  : ListView.builder(
-                      itemCount: controller.receivedCoordinatedList.length,
-                      shrinkWrap: true,
-                      itemBuilder: (context, index) {
-                        var item = controller.receivedCoordinatedList[index];
-                        return ListTile(
-                          title: Text(
-                              'Uid :- ${item.uid}, \nLat :- ${item.latitude}, \nLong :- ${item.longitude}, \nTime :- ${item.time}'),
-                        );
-                      },
-                    ),
+          Positioned.fill(
+            child: Expanded(
+              child: Obx(
+                () => controller.receivedCoordinatedList.isEmpty
+                    ? const Center(
+                        child: Text('No Coordinate Received'),
+                      )
+                    : ListView.builder(
+                        itemCount: controller.receivedCoordinatedList.length,
+                        controller: controller.scrollController,
+                        shrinkWrap: true,
+                        itemBuilder: (context, index) {
+                          var item = controller.receivedCoordinatedList[index];
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            child: ListTile(
+                              style: ListTileStyle.list,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  side: const BorderSide(color: Colors.deepPurple, width: 2, style: BorderStyle.solid)),
+                              title: Text(
+                                  'Uid :- ${item.uid}, \nLat :- ${item.latitude}, \nLong :- ${item.longitude}, \nTime :- ${item.time}'),
+                            ),
+                          );
+                        },
+                      ),
+              ),
             ),
           ),
-          Obx(
-            () => ElevatedButton(
-                onPressed: () {
-                  switch (controller.currentBtnState.value) {
-                    case ButtonState.start:
-                      controller.startFetchingLocation();
-                      return;
-                    case ButtonState.stop:
-                      controller.stopListening();
-                      return;
-                    case ButtonState.download:
-                      controller.saveLocationsAsCsv();
-                      return;
-                  }
-                },
-                child:
-                    Text(controller.currentBtnState.value == ButtonState.start
-                        ? 'Start'
-                        : controller.currentBtnState.value == ButtonState.stop
-                            ? 'Stop'
-                            : 'Download')),
-          ),
-          SizedBox(
-            height: 40,
-          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 30,
+            child: Center(
+              child: Obx(
+                () => ElevatedButton(
+                    style: const ButtonStyle(backgroundColor: WidgetStatePropertyAll(Colors.deepPurple)),
+                    onPressed: () {
+                      switch (controller.currentBtnState.value) {
+                        case ButtonState.start:
+                          controller.startFetchingLocation();
+                          return;
+                        case ButtonState.stop:
+                          controller.stopListening();
+                          return;
+                        case ButtonState.download:
+                          controller.saveLocationsAsCsv();
+                          return;
+                      }
+                    },
+                    child: Text(
+                      controller.currentBtnState.value == ButtonState.start
+                          ? 'Start'
+                          : controller.currentBtnState.value == ButtonState.stop
+                              ? 'Stop'
+                              : 'Download',
+                      style: const TextStyle(color: Colors.white),
+                    )),
+              ),
+            ),
+          )
         ],
       ),
     );

@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 import 'package:uuid/uuid.dart';
 
 class CurrentLocationModel {
@@ -13,7 +11,7 @@ class CurrentLocationModel {
     this.latitude,
     this.longitude,
     this.time,
-  }) : uid = uid ?? const Uuid().v4();
+  }) : uid = uid ?? const Uuid().v4().substring(0, 6);
 
   String toCsvRow() {
     return '$uid,${latitude ?? ''},${longitude ?? ''},${time ?? ''}';
